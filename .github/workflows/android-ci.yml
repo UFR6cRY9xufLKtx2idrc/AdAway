@@ -2,8 +2,13 @@ name: Android CI
 
 on:
   push:
-    branches:
-      - master
+    tags:
+      - "*"
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: write
 
 jobs:
   build:
@@ -11,25 +16,20 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v2
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          submodules: 'recursive'
 
-      - name: set up JDK 11
-        uses: actions/setup-java@v2
+      - name: Setup Java
+        uses: actions/setup-java@v3
         with:
           distribution: 'temurin'
           java-version: 11
-          cache: 'gradle'
+          check-latest: true
 
-      - name: Restore SonarCloud packages cache
-        uses: actions/cache@v2
-        with:
-          path: ~/.sonar/cache
-          key: ${{ runner.os }}-sonar
-          restore-keys: ${{ runner.os }}-sonar
-
-      # Manually install latest build tools (takes up to two weeks to update in action images)
       - name: Install latest build tools
-        run: echo "y" | sudo ${ANDROID_HOME}/tools/bin/sdkmanager --install "build-tools;32.0.0" --sdk_root=${ANDROID_SDK_ROOT}
+        run: echo "y" | sudo ${ANDROID_HOME}/tools/bin/sdkmanager --install "build-tools;33.0.1" --sdk_root=${ANDROID_SDK_ROOT}
 
       - name: Install NDK
         run: echo "y" | sudo ${ANDROID_HOME}/tools/bin/sdkmanager --install "ndk;25.1.8937393" --sdk_root=${ANDROID_SDK_ROOT}
@@ -38,23 +38,17 @@ jobs:
         run: ./gradlew test --stacktrace
 
       - name: Build with Gradle
-        run: ./gradlew assembleRelease --stacktrace
+        run: ./gradlew assembleDebug --stacktrace
 
-      # - name: Upload APK
-      #   uses: actions/upload-artifact@v2
-      #   with:
-      #     name: AdAway-dev
-      #     path: app/build/outputs/apk/release/app-release-unsigned.apk
-      
-      - name: Update dependency graph
-        uses: mikepenz/gradle-dependency-submission@v0.0.5
+      - name: Upload APK
+        uses: actions/upload-artifact@v3
         with:
-          gradle-dependency-path: "app/build.gradle"
-          gradle-build-module: ":app"
-          gradle-build-configuration: "releaseCompileClasspath"
+          name: AdAway-dev
+          path: app/build/outputs/apk/debug/app-debug.apk
 
-      - name: Analyze project
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-        run: ./gradlew -Dorg.gradle.jvmargs=-XX:MaxMetaspaceSize=512m sonarqube
+      - name: Releases
+        uses: softprops/action-gh-release@v1
+        with:
+          body: Bump Version
+          files: |
+            app/build/outputs/apk/debug/app-debug.apk
