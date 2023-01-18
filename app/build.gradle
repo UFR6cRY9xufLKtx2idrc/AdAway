@@ -141,7 +141,7 @@ dependencies {
 
     // Test related
     testImplementation 'junit:junit:4.13.2'
-    testImplementation 'org.json:json:20220320'
+    testImplementation 'org.json:json:20220924'
     androidTestImplementation 'androidx.arch.core:core-testing:2.1.0'
     androidTestImplementation 'androidx.test:core:1.5.0'
     androidTestImplementation 'androidx.test.ext:junit:1.1.5'
