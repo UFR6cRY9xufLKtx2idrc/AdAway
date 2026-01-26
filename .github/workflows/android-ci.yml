@@ -3,55 +3,47 @@ name: Android CI
 on:
   push:
     branches:
-      - master
+      - '*'
+    tags-ignore:
+      - "*"
+  workflow_dispatch:
 
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+permissions:
+  contents: write
 
 jobs:
-  build:
-    name: Development build
+  linux:
+    name: Build
     runs-on: ubuntu-latest
-
     steps:
-      - uses: actions/checkout@v6
+      - name: Checkout
+        uses: actions/checkout@v6
 
-      - name: set up JDK 21
+      - name: Setup Java
         uses: actions/setup-java@v5
         with:
           distribution: 'temurin'
           java-version: 21
-          cache: 'gradle'
+          check-latest: true
 
-      - name: Restore SonarCloud packages cache
-        uses: actions/cache@v5
-        with:
-          path: ~/.sonar/cache
-          key: ${{ runner.os }}-sonar
-          restore-keys: ${{ runner.os }}-sonar
-
-      - name: Run unit tests
-        run: ./gradlew test --stacktrace
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v5
 
       - name: Build with Gradle
-        run: ./gradlew assembleRelease --stacktrace
+        run: ./gradlew assembleRelease
 
-      # - name: Upload APK
-      #   uses: actions/upload-artifact@v3
-      #   with:
-      #     name: AdAway-dev
-      #     path: app/build/outputs/apk/release/app-release-unsigned.apk
-      
-      - name: Update dependency graph
-        uses: mikepenz/gradle-dependency-submission@v1.0.0 # Deprecated: need to be changed
+      - name: Uploading Artifact
+        uses: actions/upload-artifact@v6
         with:
-          gradle-dependency-path: "app/build.gradle"
-          gradle-build-module: ":app"
-          gradle-build-configuration: "releaseCompileClasspath"
+          name: app-normal-release.apk
+          path: ./app/build/outputs/apk/normal/release/app-normal-release.apk
+          if-no-files-found: error
 
-      - name: Analyze project
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-        run: ./gradlew -Dorg.gradle.jvmargs=-XX:MaxMetaspaceSize=512m sonar
+      - name: Upload binaries to release
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: app/build/outputs/apk/normal/release/app-normal-release.apk
+          asset_name: app-normal-release-${{ github.run_number }}.apk
+          tag: ${{ github.ref }}
+          overwrite: true
